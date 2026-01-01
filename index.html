@@ -87,7 +87,7 @@
                 }
             }, [statusMsg]);
 
-            // 快捷產品建議：改回按「出現頻率」排序
+            // 快捷產品建議：按「出現頻率」排序
             const frequentProducts = useMemo(() => {
                 const counts = transactions.reduce((acc, curr) => {
                     if (curr.productName) {
@@ -101,10 +101,36 @@
                     .slice(0, 6);
             }, [transactions]);
 
+            // 安全計算數學算式
+            const calculateValue = (input) => {
+                if (!input) return "";
+                // 只允許數字和 +-*/.
+                const sanitized = input.replace(/[^-+*/.0-9]/g, '');
+                try {
+                    // 使用 Function 進行簡單計算
+                    const result = new Function(`return ${sanitized}`)();
+                    return isFinite(result) ? parseFloat(result.toFixed(2)) : "";
+                } catch (e) {
+                    return null; // 代表無效算式
+                }
+            };
+
+            // 當數量輸入框失焦時，自動轉換為計算結果
+            const handleQuantityBlur = () => {
+                const result = calculateValue(formData.quantity);
+                if (result !== null && result !== "") {
+                    setFormData({ ...formData, quantity: String(result) });
+                }
+            };
+
             const handleSubmit = async (e) => {
                 e.preventDefault();
-                if (!formData.productName.trim() || !formData.quantity) {
-                    setStatusMsg({ type: 'error', text: '⚠️ 請輸入完整資訊' });
+                
+                // 提交前先計算一次
+                const finalQty = calculateValue(formData.quantity);
+                
+                if (!formData.productName.trim() || finalQty === null || finalQty === "") {
+                    setStatusMsg({ type: 'error', text: '⚠️ 資訊不完整或數量錯誤' });
                     return;
                 }
 
@@ -113,7 +139,7 @@
                     const payload = {
                         ...formData,
                         productName: formData.productName.trim().toUpperCase(),
-                        quantity: Number(formData.quantity)
+                        quantity: finalQty
                     };
 
                     // 發送至 Google Sheets
@@ -138,6 +164,10 @@
                 }
             };
 
+            // 檢查是否包含算式
+            const isFormula = /[+*/-]/.test(formData.quantity);
+            const calculatedPreview = useMemo(() => calculateValue(formData.quantity), [formData.quantity]);
+
             return (
                 <div className="min-h-screen select-none pb-48">
                     {/* Header */}
@@ -160,7 +190,7 @@
 
                     <main className="max-w-md mx-auto p-4 space-y-6">
                         {view === 'entry' ? (
-                            <div className="space-y-6">
+                            <div className="space-y-6 animate-in fade-in duration-500">
                                 {/* 動作切換器 */}
                                 <div className="bg-white p-2 rounded-[2rem] shadow-sm flex gap-1">
                                     {Object.keys(actionColors).map(t => (
@@ -188,7 +218,6 @@
                                             placeholder="請輸入產品名稱"
                                             className="w-full p-5 bg-slate-50 border-2 border-transparent rounded-3xl focus:border-indigo-500 focus:bg-white text-lg font-black outline-none transition-all shadow-inner"
                                         />
-                                        {/* 快捷按鈕區 - 出現頻率最高優先 */}
                                         <div className="flex flex-wrap gap-2">
                                             {frequentProducts.map(p => (
                                                 <button key={p} type="button" onClick={() => setFormData({...formData, productName: p})} className="px-3 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-bold active:bg-indigo-100 transition-colors">
@@ -214,16 +243,24 @@
                                         </div>
                                     </div>
 
-                                    {/* 數量與單位 */}
+                                    {/* 數量與單位 - 支援算式 */}
                                     <div className="flex gap-4">
                                         <div className="flex-[3] space-y-3">
-                                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">數量</label>
+                                            <div className="flex justify-between items-center px-1">
+                                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">數量</label>
+                                                {isFormula && calculatedPreview !== null && (
+                                                    <span className="text-[10px] font-black text-indigo-500 animate-pulse">
+                                                        = {calculatedPreview}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <input
-                                                type="number"
-                                                inputMode="decimal"
+                                                type="text"
+                                                inputMode="text"
                                                 value={formData.quantity}
                                                 onChange={e => setFormData({...formData, quantity: e.target.value})}
-                                                placeholder="0"
+                                                onBlur={handleQuantityBlur}
+                                                placeholder="0 或 31*8"
                                                 className="w-full p-5 bg-slate-50 border-none rounded-3xl focus:ring-4 focus:ring-indigo-100 text-2xl font-black outline-none shadow-inner"
                                             />
                                         </div>
@@ -241,7 +278,7 @@
 
                                     {/* 收貨單號 */}
                                     {formData.type === '收貨' && (
-                                        <div className="space-y-3">
+                                        <div className="space-y-3 animate-in slide-in-from-top-4 duration-300">
                                             <label className="text-xs font-black text-blue-600 uppercase tracking-widest px-1">收貨單號 (PO000268)</label>
                                             <input
                                                 type="text"
@@ -265,7 +302,7 @@
                                 </form>
                             </div>
                         ) : (
-                            <div className="space-y-4">
+                            <div className="space-y-4 animate-in fade-in duration-500">
                                 <div className="flex justify-between items-center px-2">
                                     <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
                                         🕒 歷史紀錄
