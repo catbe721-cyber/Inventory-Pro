@@ -15,20 +15,9 @@
             font-family: 'Noto Sans TC', sans-serif;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
-            overscroll-behavior-y: contain;
         }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
-        input:focus, select:focus { transform: translateY(-2px); transition: all 0.2s; }
-        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
-        /* 簡單的旋轉動畫供讀取時使用 */
-        .loading-spin {
-            display: inline-block;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
+        input:focus, select:focus { transform: translateY(-1px); transition: all 0.2s; }
     </style>
 </head>
 <body class="bg-[#F1F5F9]">
@@ -56,30 +45,27 @@
             });
 
             const actionColors = {
-                '轉入': { bg: 'bg-emerald-500', text: 'text-emerald-600', light: 'bg-emerald-50', border: 'border-emerald-200' },
-                '轉出': { bg: 'bg-rose-500', text: 'text-rose-600', light: 'bg-rose-50', border: 'border-rose-200' },
-                '收貨': { bg: 'bg-blue-500', text: 'text-blue-600', light: 'bg-blue-50', border: 'border-blue-200' },
-                '退貨': { bg: 'bg-orange-500', text: 'text-orange-600', light: 'bg-orange-50', border: 'border-orange-200' }
+                '轉入': { bg: 'bg-emerald-600', text: 'text-emerald-600', light: 'bg-emerald-50', border: 'border-emerald-200' },
+                '轉出': { bg: 'bg-rose-600', text: 'text-rose-600', light: 'bg-rose-50', border: 'border-rose-200' },
+                '收貨': { bg: 'bg-blue-600', text: 'text-blue-600', light: 'bg-blue-50', border: 'border-blue-200' },
+                '退貨': { bg: 'bg-orange-600', text: 'text-orange-600', light: 'bg-orange-50', border: 'border-orange-200' }
             };
 
             const categoryColors = {
                 'BOX': 'text-blue-500', 'TRAY': 'text-purple-500', 'FILM': 'text-emerald-500', 'SUSHI': 'text-rose-500', 'OTHER': 'text-slate-500'
             };
 
-            // 載入本地存儲
             useEffect(() => {
                 try {
                     const saved = localStorage.getItem('inv_v5_final');
                     if (saved) setTransactions(JSON.parse(saved));
-                } catch (e) { console.error("Storage load error", e); }
+                } catch (e) { console.error(e); }
             }, []);
 
-            // 保存本地存儲
             useEffect(() => { 
                 localStorage.setItem('inv_v5_final', JSON.stringify(transactions)); 
             }, [transactions]);
 
-            // 自動清除提示
             useEffect(() => {
                 if (statusMsg.text) {
                     const timer = setTimeout(() => setStatusMsg({ type: '', text: '' }), 3000);
@@ -87,7 +73,6 @@
                 }
             }, [statusMsg]);
 
-            // 快捷產品建議：按「出現頻率」排序
             const frequentProducts = useMemo(() => {
                 const counts = transactions.reduce((acc, curr) => {
                     if (curr.productName) {
@@ -95,27 +80,18 @@
                     }
                     return acc;
                 }, {});
-                
-                return Object.keys(counts)
-                    .sort((a, b) => counts[b] - counts[a])
-                    .slice(0, 6);
+                return Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 6);
             }, [transactions]);
 
-            // 安全計算數學算式
             const calculateValue = (input) => {
                 if (!input) return "";
-                // 只允許數字和 +-*/.
                 const sanitized = input.replace(/[^-+*/.0-9]/g, '');
                 try {
-                    // 使用 Function 進行簡單計算
                     const result = new Function(`return ${sanitized}`)();
                     return isFinite(result) ? parseFloat(result.toFixed(2)) : "";
-                } catch (e) {
-                    return null; // 代表無效算式
-                }
+                } catch (e) { return null; }
             };
 
-            // 當數量輸入框失焦時，自動轉換為計算結果
             const handleQuantityBlur = () => {
                 const result = calculateValue(formData.quantity);
                 if (result !== null && result !== "") {
@@ -125,12 +101,9 @@
 
             const handleSubmit = async (e) => {
                 e.preventDefault();
-                
-                // 提交前先計算一次
                 const finalQty = calculateValue(formData.quantity);
-                
                 if (!formData.productName.trim() || finalQty === null || finalQty === "") {
-                    setStatusMsg({ type: 'error', text: '⚠️ 資訊不完整或數量錯誤' });
+                    setStatusMsg({ type: 'error', text: '資訊不完整或數量錯誤' });
                     return;
                 }
 
@@ -141,63 +114,68 @@
                         productName: formData.productName.trim().toUpperCase(),
                         quantity: finalQty
                     };
-
-                    // 發送至 Google Sheets
                     await fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
-
                     const newRecord = {
                         ...payload,
                         id: Date.now(),
                         timestamp: new Date().toLocaleString('zh-HK', { hour12: false })
                     };
-
                     setTransactions([newRecord, ...transactions]);
-                    setStatusMsg({ type: 'success', text: `✅ 已成功${formData.type}` });
-                    
-                    // 重置表單
+                    setStatusMsg({ type: 'success', text: `已成功完成${formData.type}` });
                     setFormData(prev => ({ ...prev, productName: '', quantity: '', receiptId: '' }));
                     if (window.navigator.vibrate) window.navigator.vibrate(50);
                 } catch (error) {
-                    setStatusMsg({ type: 'error', text: '❌ 同步失敗，請檢查網路' });
+                    setStatusMsg({ type: 'error', text: '同步失敗，請檢查網路' });
                 } finally {
                     setIsSubmitting(false);
                 }
             };
 
-            // 檢查是否包含算式
             const isFormula = /[+*/-]/.test(formData.quantity);
             const calculatedPreview = useMemo(() => calculateValue(formData.quantity), [formData.quantity]);
 
+            // 視圖切換組件 (置於提交之下)
+            const ViewSwitcher = () => (
+                <nav className="flex gap-2 mt-8">
+                    <button 
+                        onClick={() => setView('entry')} 
+                        className={`flex-1 py-4 rounded-2xl font-black text-sm transition-all ${view === 'entry' ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}
+                    >
+                        錄入資料
+                    </button>
+                    <button 
+                        onClick={() => setView('history')} 
+                        className={`flex-1 py-4 rounded-2xl font-black text-sm transition-all ${view === 'history' ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}
+                    >
+                        歷史紀錄
+                    </button>
+                </nav>
+            );
+
             return (
-                <div className="min-h-screen select-none pb-48">
-                    {/* Header */}
-                    <header className="bg-slate-900 text-white px-6 py-6 sticky top-0 z-50 flex justify-between items-center shadow-xl">
-                        <div className="flex items-center gap-3">
-                            <span className="text-2xl">📦</span>
-                            <h1 className="font-black text-xl tracking-tight">倉庫快錄 Pro</h1>
-                        </div>
-                        {isSubmitting && <span className="loading-spin text-xl">⏳</span>}
+                <div className="min-h-screen pb-12">
+                    <header className="bg-slate-900 text-white px-6 py-6 sticky top-0 z-50 flex justify-between items-center">
+                        <h1 className="font-black text-xl tracking-tight">倉庫快錄 Pro</h1>
+                        {isSubmitting && <span className="text-xs font-bold animate-pulse">處理中</span>}
                     </header>
 
-                    {/* 提示訊息 */}
                     {statusMsg.text && (
                         <div className="fixed top-24 left-0 right-0 z-[60] px-6">
-                            <div className={`flex items-center justify-center p-4 rounded-2xl shadow-2xl ${statusMsg.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'} text-white font-black animate-bounce`}>
+                            <div className={`flex items-center justify-center p-4 rounded-2xl shadow-2xl ${statusMsg.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'} text-white font-black animate-in fade-in slide-in-from-top-4`}>
                                 {statusMsg.text}
                             </div>
                         </div>
                     )}
 
-                    <main className="max-w-md mx-auto p-4 space-y-6">
+                    <main className="max-w-md mx-auto p-4">
                         {view === 'entry' ? (
-                            <div className="space-y-6 animate-in fade-in duration-500">
-                                {/* 動作切換器 */}
-                                <div className="bg-white p-2 rounded-[2rem] shadow-sm flex gap-1">
+                            <div className="animate-in fade-in duration-500">
+                                <div className="bg-white p-2 rounded-[2rem] shadow-sm flex gap-1 mb-6">
                                     {Object.keys(actionColors).map(t => (
                                         <button
                                             key={t}
                                             onClick={() => setFormData({...formData, type: t})}
-                                            className={`flex-1 py-4 rounded-3xl font-black text-sm transition-all duration-300 ${formData.type === t ? `${actionColors[t].bg} text-white shadow-lg scale-105` : 'text-slate-400'}`}
+                                            className={`flex-1 py-4 rounded-3xl font-black text-xs transition-all duration-300 ${formData.type === t ? `${actionColors[t].bg} text-white shadow-lg` : 'text-slate-400'}`}
                                         >
                                             {t}
                                         </button>
@@ -205,29 +183,27 @@
                                 </div>
 
                                 <form onSubmit={handleSubmit} className="bg-white rounded-[2.5rem] p-7 shadow-xl border border-white space-y-6">
-                                    {/* 產品名稱 */}
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center px-1">
                                             <label className="text-xs font-black text-slate-400 uppercase tracking-widest">產品名稱</label>
-                                            <span className="text-[10px] font-bold text-slate-300">AUTO-UPPERCASE</span>
+                                            <span className="text-[10px] font-bold text-slate-300 tracking-tighter">大寫轉換</span>
                                         </div>
                                         <input
                                             type="text"
                                             value={formData.productName}
                                             onChange={e => setFormData({...formData, productName: e.target.value.toUpperCase()})}
-                                            placeholder="請輸入產品名稱"
-                                            className="w-full p-5 bg-slate-50 border-2 border-transparent rounded-3xl focus:border-indigo-500 focus:bg-white text-lg font-black outline-none transition-all shadow-inner"
+                                            placeholder="輸入名稱"
+                                            className="w-full p-5 bg-slate-50 border-none rounded-3xl focus:ring-2 focus:ring-indigo-500 text-lg font-black outline-none shadow-inner"
                                         />
                                         <div className="flex flex-wrap gap-2">
                                             {frequentProducts.map(p => (
-                                                <button key={p} type="button" onClick={() => setFormData({...formData, productName: p})} className="px-3 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-bold active:bg-indigo-100 transition-colors">
+                                                <button key={p} type="button" onClick={() => setFormData({...formData, productName: p})} className="px-3 py-2 bg-slate-100 text-slate-500 rounded-xl text-[11px] font-bold active:bg-indigo-100 transition-colors">
                                                     {p}
                                                 </button>
                                             ))}
                                         </div>
                                     </div>
 
-                                    {/* 產品類別 */}
                                     <div className="space-y-3">
                                         <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">產品類別</label>
                                         <div className="grid grid-cols-3 gap-2">
@@ -243,25 +219,21 @@
                                         </div>
                                     </div>
 
-                                    {/* 數量與單位 - 支援算式 */}
                                     <div className="flex gap-4">
                                         <div className="flex-[3] space-y-3">
                                             <div className="flex justify-between items-center px-1">
                                                 <label className="text-xs font-black text-slate-400 uppercase tracking-widest">數量</label>
                                                 {isFormula && calculatedPreview !== null && (
-                                                    <span className="text-[10px] font-black text-indigo-500 animate-pulse">
-                                                        = {calculatedPreview}
-                                                    </span>
+                                                    <span className="text-[10px] font-black text-indigo-500">= {calculatedPreview}</span>
                                                 )}
                                             </div>
                                             <input
                                                 type="text"
-                                                inputMode="text"
                                                 value={formData.quantity}
                                                 onChange={e => setFormData({...formData, quantity: e.target.value})}
                                                 onBlur={handleQuantityBlur}
-                                                placeholder="0 或 31*8"
-                                                className="w-full p-5 bg-slate-50 border-none rounded-3xl focus:ring-4 focus:ring-indigo-100 text-2xl font-black outline-none shadow-inner"
+                                                placeholder="0"
+                                                className="w-full p-5 bg-slate-50 border-none rounded-3xl focus:ring-2 focus:ring-indigo-500 text-2xl font-black outline-none shadow-inner"
                                             />
                                         </div>
                                         <div className="flex-[2] space-y-3">
@@ -269,100 +241,80 @@
                                             <select
                                                 value={formData.unit}
                                                 onChange={e => setFormData({...formData, unit: e.target.value})}
-                                                className="w-full p-5 bg-slate-50 border-none rounded-3xl focus:ring-4 focus:ring-indigo-100 text-lg font-black outline-none appearance-none shadow-inner"
+                                                className="w-full p-5 bg-slate-50 border-none rounded-3xl focus:ring-2 focus:ring-indigo-500 text-lg font-black outline-none appearance-none shadow-inner"
                                             >
-                                                {['件', '箱', '卷', 'KG', '板'].map(u => <option key={u} value={u}>{u}</option>)}
+                                                {['件', '箱', '卷', 'KG', '板'].map(u => <option key={u}>{u}</option>)}
                                             </select>
                                         </div>
                                     </div>
 
-                                    {/* 收貨單號 */}
                                     {formData.type === '收貨' && (
-                                        <div className="space-y-3 animate-in slide-in-from-top-4 duration-300">
-                                            <label className="text-xs font-black text-blue-600 uppercase tracking-widest px-1">收貨單號 (PO000268)</label>
+                                        <div className="space-y-3">
+                                            <label className="text-xs font-black text-blue-600 uppercase tracking-widest px-1">收貨單號</label>
                                             <input
                                                 type="text"
                                                 value={formData.receiptId}
                                                 onChange={e => setFormData({...formData, receiptId: e.target.value.toUpperCase()})}
-                                                className="w-full p-5 bg-blue-50 border-2 border-blue-200 rounded-3xl focus:border-blue-500 text-lg font-black outline-none"
+                                                className="w-full p-5 bg-blue-50 border-2 border-blue-100 rounded-3xl focus:border-blue-500 text-lg font-black outline-none"
                                             />
                                         </div>
                                     )}
 
-                                    {/* 提交按鈕 */}
                                     <button
                                         type="submit"
                                         disabled={isSubmitting}
-                                        className={`w-full py-6 rounded-[2rem] font-black text-xl text-white shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3 ${isSubmitting ? 'bg-slate-300' : actionColors[formData.type].bg}`}
+                                        className={`w-full py-6 rounded-[2rem] font-black text-xl text-white shadow-2xl transition-all active:scale-95 ${isSubmitting ? 'bg-slate-300' : actionColors[formData.type].bg}`}
                                     >
-                                        {isSubmitting ? '處理中...' : `確認提交${formData.type}`}
+                                        {isSubmitting ? '同步中' : `確認提交${formData.type}`}
                                     </button>
-                                    
-                                    <div className="h-10"></div>
                                 </form>
+                                <ViewSwitcher />
                             </div>
                         ) : (
-                            <div className="space-y-4 animate-in fade-in duration-500">
-                                <div className="flex justify-between items-center px-2">
-                                    <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-                                        🕒 歷史紀錄
-                                    </h2>
-                                    <button onClick={() => confirm('清空本地紀錄？') && setTransactions([])} className="text-rose-500 font-bold text-sm bg-rose-50 px-3 py-1 rounded-full">
+                            <div className="animate-in fade-in duration-500">
+                                <div className="flex justify-between items-center px-2 mb-4">
+                                    <h2 className="text-2xl font-black text-slate-900">歷史紀錄</h2>
+                                    <button onClick={() => confirm('清空本地紀錄？') && setTransactions([])} className="text-rose-500 font-bold text-xs bg-rose-50 px-3 py-2 rounded-xl">
                                         清除全部
                                     </button>
                                 </div>
 
-                                {/* 篩選標籤 */}
-                                <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide">
+                                <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
                                     {['全部', '轉入', '轉出', '收貨', '退貨'].map(f => (
-                                        <button key={f} onClick={() => setFilterType(f)} className={`px-5 py-2.5 rounded-full text-xs font-black whitespace-nowrap transition-all shadow-sm ${filterType === f ? 'bg-slate-900 text-white' : 'bg-white text-slate-500'}`}>
+                                        <button key={f} onClick={() => setFilterType(f)} className={`px-5 py-2.5 rounded-full text-[11px] font-black whitespace-nowrap transition-all shadow-sm ${filterType === f ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 border border-slate-100'}`}>
                                             {f}
                                         </button>
                                     ))}
                                 </div>
 
-                                {/* 紀錄清單 */}
-                                <div className="space-y-3 pb-32">
+                                <div className="space-y-3">
                                     {transactions.filter(t => filterType === '全部' || t.type === filterType).map(t => (
                                         <div key={t.id} className={`bg-white p-5 rounded-[2rem] shadow-sm border-l-8 ${actionColors[t.type].border} flex justify-between items-center active:scale-[0.98] transition-all`}>
                                             <div className="space-y-1">
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${actionColors[t.type].light} ${actionColors[t.type].text}`}>{t.type}</span>
-                                                    <span className={`font-bold text-[10px] uppercase ${categoryColors[t.category] || 'text-slate-400'}`}>● {t.category}</span>
+                                                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black ${actionColors[t.type].light} ${actionColors[t.type].text}`}>{t.type}</span>
+                                                    <span className={`font-bold text-[9px] uppercase ${categoryColors[t.category] || 'text-slate-400'}`}>{t.category}</span>
                                                     <span className="font-black text-slate-800 tracking-tight">{t.productName}</span>
                                                 </div>
                                                 <div className="text-[10px] text-slate-400 font-bold flex gap-2">
-                                                    <span>{t.timestamp}</span>
+                                                    <span>{t.timestamp.split(',')[1]}</span>
                                                     {t.receiptId && <span className="text-blue-500 font-black">#{t.receiptId}</span>}
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <span className={`text-2xl font-black ${actionColors[t.type].text}`}>{t.type === '轉出' || t.type === '退貨' ? '-' : '+'}{t.quantity}</span>
-                                                <span className="text-[10px] text-slate-400 ml-1.5 font-black">{t.unit}</span>
+                                                <span className={`text-xl font-black ${actionColors[t.type].text}`}>{t.quantity}</span>
+                                                <span className="text-[10px] text-slate-400 ml-1 font-black">{t.unit}</span>
                                             </div>
                                         </div>
                                     ))}
                                     {transactions.length === 0 && (
-                                        <div className="py-20 text-center text-slate-300 font-bold uppercase tracking-widest">目前尚無數據</div>
+                                        <div className="py-20 text-center text-slate-300 font-bold uppercase tracking-widest text-xs">無數據紀錄</div>
                                     )}
                                 </div>
+                                <ViewSwitcher />
                             </div>
                         )}
                     </main>
-
-                    {/* 底部導覽列 */}
-                    <footer className="fixed bottom-6 left-0 right-0 z-50 flex justify-center safe-area-bottom">
-                        <div className="bg-slate-900/95 backdrop-blur-xl rounded-[2.5rem] p-2 flex gap-1 shadow-2xl border border-white/10 mx-4 w-full max-w-xs">
-                            <button onClick={() => setView('entry')} className={`flex-1 py-4 rounded-3xl flex flex-col items-center gap-1 transition-all ${view === 'entry' ? 'bg-white text-slate-900 shadow-xl scale-105' : 'text-slate-500'}`}>
-                                <span className="text-xl">➕</span>
-                                <span className="text-[9px] font-black">錄入資料</span>
-                            </button>
-                            <button onClick={() => setView('history')} className={`flex-1 py-4 rounded-3xl flex flex-col items-center gap-1 transition-all ${view === 'history' ? 'bg-white text-slate-900 shadow-xl scale-105' : 'text-slate-500'}`}>
-                                <span className="text-xl">🕒</span>
-                                <span className="text-[9px] font-black">歷史紀錄</span>
-                            </button>
-                        </div>
-                    </footer>
                 </div>
             );
         }
