@@ -2,71 +2,64 @@
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>倉庫進出貨助手 Pro</title>
-    <!-- 載入 React & ReactDOM -->
+    <!-- 載入必要庫 -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- 載入 Babel 用於即時解析 JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- 載入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 載入 Lucide 圖標庫 -->
-    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         body {
             font-family: 'Noto Sans TC', sans-serif;
             -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            overscroll-behavior-y: contain;
         }
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        input:focus, select:focus { transform: translateY(-2px); transition: all 0.2s; }
+        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
     </style>
 </head>
-<body class="bg-[#F8FAFC]">
+<body class="bg-[#F1F5F9]">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // 圖標組件 (封裝 Lucide)
-        const Icon = ({ name, size = 24, className = "", strokeWidth = 2 }) => {
-            const [svg, setSvg] = useState("");
-            
-            useEffect(() => {
-                // 使用 Lucide 的 create 接口獲取圖標
-                if (window.lucide) {
-                    const iconElement = document.createElement('i');
-                    iconElement.setAttribute('data-lucide', name);
-                    const icons = window.lucide.createIcons({
-                        icons: { [name]: window.lucide.icons[name] },
-                        attrs: { 
-                            strokeWidth, 
-                            width: size, 
-                            height: size,
-                            class: className
-                        }
-                    });
-                }
-            }, [name, size, className]);
-
-            // 由於 CDN 版 Lucide 的 React 集成較複雜，這裡直接使用原生 SVG 路徑或簡單封裝
-            // 為了確保 100% 運作，我們定義幾個核心圖標的 SVG
+        // 修正版圖標組件 - 使用 Fragment 包裹多個路徑
+        const Icon = ({ name, size = 24, className = "", strokeWidth = 2.5 }) => {
             const icons = {
-                Package: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>,
-                PlusCircle: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>,
-                History: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>,
-                LayoutDashboard: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>,
-                Trash2: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>,
-                CheckCircle2: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>,
-                AlertCircle: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>,
-                FileText: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>,
-                RefreshCcw: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>,
-                Loader2: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={`${className} animate-spin`}><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>
+                Package: (
+                    <>
+                        <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+                        <path d="m3.3 7 8.7 5 8.7-5"/>
+                        <path d="M12 22V12"/>
+                    </>
+                ),
+                History: (
+                    <>
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                        <path d="M3 3v5h5"/>
+                        <path d="M12 7v5l4 2"/>
+                    </>
+                ),
+                Plus: <path d="M12 5v14M5 12h14"/>,
+                Trash: <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>,
+                Check: <path d="M20 6 9 17l-5-5"/>,
+                Loader: (
+                    <>
+                        <path d="M12 2v4m4.2 1.8 2.9-2.9M18 12h4m-5.8 4.2 2.9 2.9M12 18v4m-7.1-2.9 2.9-2.9M2 12h4M4.9 4.9l2.9 2.9"/>
+                    </>
+                ),
+                Box: <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
             };
-
-            return icons[name] || null;
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={`${className} ${name === 'Loader' ? 'animate-spin' : ''}`}>
+                    {icons[name]}
+                </svg>
+            );
         };
 
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwAOc1lu20k26JwICp0vu0dJx2d87RAn2JEQFmE_ki-XVQQ3n1vjMzzIfTuS5Y04zxv/exec";
@@ -81,68 +74,69 @@
             const [formData, setFormData] = useState({
                 type: '轉入',
                 productName: '',
+                category: 'BOX',
                 quantity: '',
                 unit: '件',
                 receiptId: ''
             });
 
+            const actionColors = {
+                '轉入': { bg: 'bg-emerald-500', text: 'text-emerald-600', light: 'bg-emerald-50', border: 'border-emerald-200' },
+                '轉出': { bg: 'bg-rose-500', text: 'text-rose-600', light: 'bg-rose-50', border: 'border-rose-200' },
+                '收貨': { bg: 'bg-blue-500', text: 'text-blue-600', light: 'bg-blue-50', border: 'border-blue-200' },
+                '退貨': { bg: 'bg-orange-500', text: 'text-orange-600', light: 'bg-orange-50', border: 'border-orange-200' }
+            };
+
+            const categoryColors = {
+                'BOX': 'text-blue-500', 'TRAY': 'text-purple-500', 'FILM': 'text-emerald-500', 'SUSHI': 'text-rose-500', 'OTHER': 'text-slate-500'
+            };
+
+            // 讀取存儲
             useEffect(() => {
-                const savedData = localStorage.getItem('inv_history');
-                if (savedData) {
-                    try { setTransactions(JSON.parse(savedData)); } catch (e) {}
+                try {
+                    const saved = localStorage.getItem('inv_v4');
+                    if (saved) setTransactions(JSON.parse(saved));
+                } catch (e) {
+                    console.error("Storage Error", e);
                 }
             }, []);
 
-            useEffect(() => {
-                localStorage.setItem('inv_history', JSON.stringify(transactions));
+            // 保存存儲
+            useEffect(() => { 
+                localStorage.setItem('inv_v4', JSON.stringify(transactions)); 
             }, [transactions]);
 
             useEffect(() => {
                 if (statusMsg.text) {
-                    const timer = setTimeout(() => setStatusMsg({ type: '', text: '' }), 4000);
+                    const timer = setTimeout(() => setStatusMsg({ type: '', text: '' }), 3000);
                     return () => clearTimeout(timer);
                 }
             }, [statusMsg]);
-
-            const stats = useMemo(() => {
-                const today = new Date().toLocaleDateString();
-                const todayTrans = transactions.filter(t => t.timestamp.includes(today));
-                return {
-                    in: todayTrans.filter(t => t.type === '轉入' || t.type === '收貨').reduce((acc, curr) => acc + Number(curr.quantity), 0),
-                    out: todayTrans.filter(t => t.type === '轉出' || t.type === '退貨').reduce((acc, curr) => acc + Number(curr.quantity), 0)
-                };
-            }, [transactions]);
 
             const commonProducts = useMemo(() => {
                 const counts = transactions.reduce((acc, curr) => {
                     acc[curr.productName] = (acc[curr.productName] || 0) + 1;
                     return acc;
                 }, {});
-                return Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 5);
+                return Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 6);
             }, [transactions]);
 
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 if (!formData.productName.trim() || !formData.quantity) {
-                    setStatusMsg({ type: 'error', text: '請輸入完整資訊' });
+                    setStatusMsg({ type: 'error', text: '資訊不完整！' });
                     return;
                 }
 
                 setIsSubmitting(true);
                 try {
                     const payload = {
-                        type: formData.type,
-                        productName: formData.productName.trim(),
-                        quantity: Number(formData.quantity),
-                        unit: formData.unit,
-                        receiptId: formData.type === '收貨' ? formData.receiptId.trim() : ""
+                        ...formData,
+                        productName: formData.productName.trim().toUpperCase(),
+                        quantity: Number(formData.quantity)
                     };
 
-                    await fetch(SCRIPT_URL, {
-                        method: "POST",
-                        mode: "no-cors", 
-                        body: JSON.stringify(payload),
-                    });
+                    await fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
 
                     const newRecord = {
                         ...payload,
@@ -151,177 +145,205 @@
                     };
 
                     setTransactions([newRecord, ...transactions]);
-                    setStatusMsg({ type: 'success', text: '同步成功' });
+                    setStatusMsg({ type: 'success', text: `已完成${formData.type}` });
                     setFormData(prev => ({ ...prev, productName: '', quantity: '', receiptId: '' }));
+                    if (window.navigator.vibrate) window.navigator.vibrate(50);
                 } catch (error) {
-                    setStatusMsg({ type: 'error', text: '網路連線失敗' });
+                    setStatusMsg({ type: 'error', text: '同步失敗' });
                 } finally {
                     setIsSubmitting(false);
                 }
             };
 
-            const filteredTransactions = useMemo(() => {
-                if (filterType === '全部') return transactions;
-                return transactions.filter(t => t.type === filterType);
-            }, [transactions, filterType]);
-
             return (
-                <div className="min-h-screen pb-28">
-                    <nav className="bg-indigo-700 text-white px-6 py-5 sticky top-0 z-50 shadow-lg flex justify-between items-center rounded-b-3xl">
+                <div className="min-h-screen pb-48">
+                    {/* Header */}
+                    <header className="bg-slate-900 text-white px-6 py-6 sticky top-0 z-50 flex justify-between items-center shadow-xl">
                         <div className="flex items-center gap-3">
-                            <div className="bg-white/20 p-2 rounded-xl">
-                                <Icon name="Package" className="text-white" />
+                            <div className="bg-indigo-500 p-2 rounded-xl shadow-lg shadow-indigo-500/30">
+                                <Icon name="Package" className="text-white" size={20} />
                             </div>
-                            <div>
-                                <span className="font-black text-lg block leading-none">庫存大師</span>
-                                <span className="text-[10px] opacity-70 tracking-widest uppercase">Inventory Pro</span>
-                            </div>
+                            <h1 className="font-black text-xl tracking-tight">倉庫快錄 Pro</h1>
                         </div>
-                        {isSubmitting && <Icon name="Loader2" size={20} />}
-                    </nav>
+                        {isSubmitting && <Icon name="Loader" size={20} className="text-indigo-400" />}
+                    </header>
 
+                    {/* Status Feedback */}
                     {statusMsg.text && (
-                        <div className="fixed top-20 left-0 right-0 z-[60] px-6">
-                            <div className={`flex items-center gap-3 p-4 rounded-2xl shadow-2xl ${statusMsg.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'} text-white`}>
-                                <Icon name={statusMsg.type === 'success' ? "CheckCircle2" : "AlertCircle"} size={20} />
-                                <span className="font-bold text-sm">{statusMsg.text}</span>
+                        <div className="fixed top-24 left-0 right-0 z-[60] px-6">
+                            <div className={`flex items-center justify-center gap-2 p-4 rounded-2xl shadow-2xl ${statusMsg.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'} text-white font-black animate-in fade-in slide-in-from-top-4`}>
+                                <Icon name={statusMsg.type === 'success' ? "Check" : "Loader"} size={20} />
+                                {statusMsg.text}
                             </div>
                         </div>
                     )}
 
-                    <main className="max-w-md mx-auto p-5">
+                    <main className="max-w-md mx-auto p-4 space-y-6">
                         {view === 'entry' ? (
-                            <div className="space-y-6">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-                                        <p className="text-[11px] font-bold text-slate-400 uppercase">今日進貨</p>
-                                        <p className="text-2xl font-black text-indigo-600">{stats.in} <span className="text-xs">件</span></p>
-                                    </div>
-                                    <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-                                        <p className="text-[11px] font-bold text-slate-400 uppercase">今日出貨</p>
-                                        <p className="text-2xl font-black text-rose-500">{stats.out} <span className="text-xs">件</span></p>
-                                    </div>
-                                </div>
-
-                                <form onSubmit={handleSubmit} className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-slate-100 space-y-6">
-                                    <div className="grid grid-cols-4 gap-2">
-                                        {['轉入', '轉出', '收貨', '退貨'].map((t) => (
-                                            <button
-                                                key={t} type="button"
-                                                onClick={() => setFormData({ ...formData, type: t })}
-                                                className={`py-3 rounded-2xl text-[13px] font-bold transition-all border-2 ${formData.type === t ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 border-transparent text-slate-500'}`}
-                                            >
-                                                {t}
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="text-[11px] font-black text-slate-400 uppercase mb-1.5 block">產品名稱</label>
-                                            <input
-                                                type="text"
-                                                value={formData.productName}
-                                                onChange={(e) => setFormData({...formData, productName: e.target.value})}
-                                                placeholder="輸入產品名稱..."
-                                                className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 text-lg font-bold outline-none shadow-inner"
-                                            />
-                                            <div className="flex flex-wrap gap-2 mt-3">
-                                                {commonProducts.map(name => (
-                                                    <button key={name} type="button" onClick={() => setFormData({...formData, productName: name})} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold active:scale-95">
-                                                        + {name}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex gap-4">
-                                            <div className="flex-[2]">
-                                                <label className="text-[11px] font-black text-slate-400 uppercase mb-1.5 block">數量</label>
-                                                <input
-                                                    type="number"
-                                                    value={formData.quantity}
-                                                    onChange={(e) => setFormData({...formData, quantity: e.target.value})}
-                                                    className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 text-xl font-black outline-none shadow-inner"
-                                                />
-                                            </div>
-                                            <div className="flex-1">
-                                                <label className="text-[11px] font-black text-slate-400 uppercase mb-1.5 block">單位</label>
-                                                <select
-                                                    value={formData.unit}
-                                                    onChange={(e) => setFormData({...formData, unit: e.target.value})}
-                                                    className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 text-lg font-bold outline-none shadow-inner"
-                                                >
-                                                    {['件', '箱', '卷', 'KG'].map(u => <option key={u} value={u}>{u}</option>)}
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        {formData.type === '收貨' && (
-                                            <div className="animate-in slide-in-from-top-2">
-                                                <label className="text-[11px] font-black text-blue-500 uppercase mb-1.5 block">收貨單號 (例如：PO000268)</label>
-                                                <input
-                                                    type="text"
-                                                    value={formData.receiptId}
-                                                    onChange={(e) => setFormData({...formData, receiptId: e.target.value})}
-                                                    className="w-full p-4 bg-blue-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 text-lg font-bold outline-none shadow-inner"
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <button
-                                        type="submit" disabled={isSubmitting}
-                                        className="w-full py-5 rounded-[2rem] font-black text-lg bg-indigo-600 text-white shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 active:scale-95 transition-all"
-                                    >
-                                        <Icon name="RefreshCcw" size={20} />
-                                        {isSubmitting ? '同步中...' : '確認上傳'}
-                                    </button>
-                                </form>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center">
-                                    <h2 className="text-2xl font-black text-slate-900">歷史明細</h2>
-                                    <button onClick={() => setTransactions([])} className="text-slate-300 hover:text-rose-500"><Icon name="Trash2" size={20}/></button>
-                                </div>
-                                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                                    {['全部', '轉入', '轉出', '收貨', '退貨'].map(type => (
-                                        <button key={type} onClick={() => setFilterType(type)} className={`px-4 py-2 rounded-full text-xs font-black whitespace-nowrap ${filterType === type ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 shadow-sm'}`}>
-                                            {type}
+                            <div className="space-y-6 animate-in fade-in duration-500">
+                                {/* Action Selector */}
+                                <div className="bg-white p-2 rounded-[2rem] shadow-sm flex gap-1">
+                                    {Object.keys(actionColors).map(t => (
+                                        <button
+                                            key={t}
+                                            onClick={() => setFormData({...formData, type: t})}
+                                            className={`flex-1 py-4 rounded-3xl font-black text-sm transition-all duration-300 ${formData.type === t ? `${actionColors[t].bg} text-white shadow-lg` : 'text-slate-400'}`}
+                                        >
+                                            {t}
                                         </button>
                                     ))}
                                 </div>
-                                <div className="space-y-3">
-                                    {filteredTransactions.map(t => (
-                                        <div key={t.id} className="bg-white p-5 rounded-[1.8rem] shadow-sm flex justify-between items-center border border-slate-50">
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${t.type === '轉入' ? 'bg-indigo-100 text-indigo-700' : t.type === '轉出' ? 'bg-rose-100 text-rose-700' : t.type === '收貨' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>{t.type}</span>
-                                                    <span className="font-black text-slate-800">{t.productName}</span>
+
+                                <form onSubmit={handleSubmit} className="bg-white rounded-[2.5rem] p-7 shadow-xl border border-white space-y-6">
+                                    {/* 產品名稱 */}
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center px-1">
+                                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest">產品名稱</label>
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${actionColors[formData.type].light} ${actionColors[formData.type].text}`}>
+                                                自動轉大階
+                                            </span>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={formData.productName}
+                                            onChange={e => setFormData({...formData, productName: e.target.value.toUpperCase()})}
+                                            placeholder="請輸入產品名稱"
+                                            className="w-full p-5 bg-slate-50 border-2 border-transparent rounded-3xl focus:border-indigo-500 focus:bg-white text-lg font-black outline-none transition-all shadow-inner"
+                                        />
+                                        <div className="flex flex-wrap gap-2">
+                                            {commonProducts.map(p => (
+                                                <button key={p} type="button" onClick={() => setFormData({...formData, productName: p})} className="px-3 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-bold active:bg-indigo-100 transition-colors">
+                                                    {p}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* 產品類別 */}
+                                    <div className="space-y-3">
+                                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">產品類別</label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {['BOX', 'TRAY', 'FILM', 'SUSHI', 'OTHER'].map(c => (
+                                                <button
+                                                    key={c} type="button"
+                                                    onClick={() => setFormData({...formData, category: c})}
+                                                    className={`py-3 rounded-2xl text-[11px] font-black border-2 transition-all ${formData.category === c ? 'border-slate-800 bg-slate-800 text-white shadow-md' : 'border-slate-100 text-slate-400'}`}
+                                                >
+                                                    {c}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* 數量與單位 */}
+                                    <div className="flex gap-4">
+                                        <div className="flex-[3] space-y-3">
+                                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">數量</label>
+                                            <input
+                                                type="number"
+                                                inputMode="decimal"
+                                                value={formData.quantity}
+                                                onChange={e => setFormData({...formData, quantity: e.target.value})}
+                                                placeholder="0"
+                                                className="w-full p-5 bg-slate-50 border-none rounded-3xl focus:ring-4 focus:ring-indigo-100 text-2xl font-black outline-none shadow-inner"
+                                            />
+                                        </div>
+                                        <div className="flex-[2] space-y-3">
+                                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">單位</label>
+                                            <select
+                                                value={formData.unit}
+                                                onChange={e => setFormData({...formData, unit: e.target.value})}
+                                                className="w-full p-5 bg-slate-50 border-none rounded-3xl focus:ring-4 focus:ring-indigo-100 text-lg font-black outline-none appearance-none shadow-inner"
+                                            >
+                                                {['件', '箱', '卷', 'KG', '板'].map(u => <option key={u}>{u}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* PO 單號 */}
+                                    {formData.type === '收貨' && (
+                                        <div className="space-y-3 animate-in slide-in-from-top-4 duration-300">
+                                            <label className="text-xs font-black text-blue-600 uppercase tracking-widest px-1">收貨單號 (PO000268)</label>
+                                            <input
+                                                type="text"
+                                                value={formData.receiptId}
+                                                onChange={e => setFormData({...formData, receiptId: e.target.value.toUpperCase()})}
+                                                className="w-full p-5 bg-blue-50 border-2 border-blue-200 rounded-3xl focus:border-blue-500 text-lg font-black outline-none"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* 提交按鈕 */}
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmitting}
+                                        className={`w-full py-6 rounded-[2rem] font-black text-xl text-white shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3 ${isSubmitting ? 'bg-slate-300' : actionColors[formData.type].bg}`}
+                                    >
+                                        {isSubmitting ? <Icon name="Loader" /> : <Icon name="Plus" />}
+                                        {isSubmitting ? '同步中...' : `確認${formData.type}`}
+                                    </button>
+                                    
+                                    {/* 底部 Spacer */}
+                                    <div className="h-20 sm:hidden"></div>
+                                </form>
+                            </div>
+                        ) : (
+                            <div className="space-y-4 animate-in fade-in duration-500">
+                                <div className="flex justify-between items-center px-2">
+                                    <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+                                        <Icon name="History" className="text-indigo-600" /> 歷史紀錄
+                                    </h2>
+                                    <button onClick={() => confirm('清空本地紀錄？') && setTransactions([])} className="text-slate-300 hover:text-rose-500 p-2">
+                                        <Icon name="Trash" size={20} />
+                                    </button>
+                                </div>
+
+                                <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide">
+                                    {['全部', '轉入', '轉出', '收貨', '退貨'].map(f => (
+                                        <button key={f} onClick={() => setFilterType(f)} className={`px-5 py-2.5 rounded-full text-xs font-black whitespace-nowrap transition-all shadow-sm ${filterType === f ? 'bg-slate-900 text-white' : 'bg-white text-slate-500'}`}>
+                                            {f}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="space-y-3 pb-32">
+                                    {transactions.filter(t => filterType === '全部' || t.type === filterType).map(t => (
+                                        <div key={t.id} className={`bg-white p-5 rounded-[2rem] shadow-sm border-l-8 ${actionColors[t.type].border} flex justify-between items-center active:scale-[0.98] transition-all`}>
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${actionColors[t.type].light} ${actionColors[t.type].text}`}>{t.type}</span>
+                                                    <span className={`font-bold text-[10px] uppercase ${categoryColors[t.category] || 'text-slate-400'}`}>● {t.category}</span>
+                                                    <span className="font-black text-slate-800 tracking-tight">{t.productName}</span>
                                                 </div>
-                                                <p className="text-[10px] text-slate-400 font-bold">{t.timestamp} {t.receiptId && `| 單號: ${t.receiptId}`}</p>
+                                                <div className="text-[10px] text-slate-400 font-bold flex gap-2">
+                                                    <span>{t.timestamp}</span>
+                                                    {t.receiptId && <span className="text-blue-500 underline">#{t.receiptId}</span>}
+                                                </div>
                                             </div>
                                             <div className="text-right">
-                                                <span className="text-xl font-black text-slate-900">{t.quantity}</span>
-                                                <span className="text-[10px] text-slate-400 ml-1 font-bold uppercase">{t.unit}</span>
+                                                <span className={`text-2xl font-black ${actionColors[t.type].text}`}>{t.type === '轉出' || t.type === '退貨' ? '-' : '+'}{t.quantity}</span>
+                                                <span className="text-[10px] text-slate-400 ml-1.5 font-black">{t.unit}</span>
                                             </div>
                                         </div>
                                     ))}
+                                    {transactions.length === 0 && (
+                                        <div className="py-20 text-center text-slate-300 font-bold uppercase tracking-widest">No Data Found</div>
+                                    )}
                                 </div>
                             </div>
                         )}
                     </main>
 
-                    <footer className="fixed bottom-6 left-6 right-6 z-50">
-                        <div className="max-w-xs mx-auto bg-slate-900/90 backdrop-blur-xl rounded-[2.5rem] p-3 flex justify-around shadow-2xl border border-white/10">
-                            <button onClick={() => setView('entry')} className={`flex flex-col items-center gap-1 px-8 py-2 rounded-3xl ${view === 'entry' ? 'bg-white text-slate-900' : 'text-slate-500'}`}>
-                                <Icon name="LayoutDashboard" size={22} strokeWidth={view === 'entry' ? 3 : 2} />
-                                <span className="text-[9px] font-bold">錄入</span>
+                    {/* Navbar */}
+                    <footer className="fixed bottom-6 left-0 right-0 z-50 flex justify-center safe-area-bottom">
+                        <div className="bg-slate-900/95 backdrop-blur-xl rounded-[2.5rem] p-2 flex gap-1 shadow-2xl border border-white/10 mx-4 w-full max-w-xs">
+                            <button onClick={() => setView('entry')} className={`flex-1 py-4 rounded-3xl flex flex-col items-center gap-1 transition-all ${view === 'entry' ? 'bg-white text-slate-900 shadow-xl scale-105' : 'text-slate-500'}`}>
+                                <Icon name="Plus" size={24} strokeWidth={view === 'entry' ? 4 : 2} />
+                                <span className="text-[9px] font-black">錄入資料</span>
                             </button>
-                            <button onClick={() => setView('history')} className={`flex flex-col items-center gap-1 px-8 py-2 rounded-3xl ${view === 'history' ? 'bg-white text-slate-900' : 'text-slate-500'}`}>
-                                <Icon name="History" size={22} strokeWidth={view === 'history' ? 3 : 2} />
-                                <span className="text-[9px] font-bold">紀錄</span>
+                            <button onClick={() => setView('history')} className={`flex-1 py-4 rounded-3xl flex flex-col items-center gap-1 transition-all ${view === 'history' ? 'bg-white text-slate-900 shadow-xl scale-105' : 'text-slate-500'}`}>
+                                <Icon name="History" size={24} strokeWidth={view === 'history' ? 4 : 2} />
+                                <span className="text-[9px] font-black">歷史紀錄</span>
                             </button>
                         </div>
                     </footer>
