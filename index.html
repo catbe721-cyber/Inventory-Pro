@@ -2,19 +2,33 @@
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>倉庫進出貨助手 Pro</title>
+    
+    <!-- iOS App 模式設定 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="倉庫快錄Pro">
+    
+    <!-- App 圖示 (使用內嵌 SVG 確保不需外部檔案) -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIj48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgcng9IjQwIiBmaWxsPSIjMGYxNzJhIi8+PHRleHQgeD0iOTAiIHk9IjExMCIgZmlsbD0id2hpdGUiIGZvbnQtc2l6ZT0iODAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iOTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5XSDwvdGV4dD48L3N2Zz4=">
+    
+    <!-- Android 主題色 -->
+    <meta name="theme-color" content="#0f172a">
+
     <!-- 載入必要庫 -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         body {
             font-family: 'Noto Sans TC', sans-serif;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
+            padding-top: env(safe-area-inset-top);
         }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         input:focus, select:focus { transform: translateY(-1px); transition: all 0.2s; }
@@ -52,8 +66,16 @@
             };
 
             const categoryColors = {
-                'BOX': 'text-blue-500', 'TRAY': 'text-purple-500', 'FILM': 'text-emerald-500', 'SUSHI': 'text-rose-500', 'OTHER': 'text-slate-500'
+                'BOX': 'text-blue-500', 
+                'TRAY': 'text-purple-500', 
+                'LABEL': 'text-pink-500',
+                'FILM': 'text-emerald-500', 
+                'BAG': 'text-cyan-600',
+                'SUSHI': 'text-rose-500', 
+                'OTHER': 'text-slate-500'
             };
+
+            const categories = ['BOX', 'TRAY', 'LABEL', 'FILM', 'BAG', 'SUSHI', 'OTHER'];
 
             useEffect(() => {
                 try {
@@ -134,7 +156,6 @@
             const isFormula = /[+*/-]/.test(formData.quantity);
             const calculatedPreview = useMemo(() => calculateValue(formData.quantity), [formData.quantity]);
 
-            // 視圖切換組件 (置於提交之下)
             const ViewSwitcher = () => (
                 <nav className="flex gap-2 mt-8">
                     <button 
@@ -186,7 +207,7 @@
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center px-1">
                                             <label className="text-xs font-black text-slate-400 uppercase tracking-widest">產品名稱</label>
-                                            <span className="text-[10px] font-bold text-slate-300 tracking-tighter">格式優化</span>
+                                            <span className="text-[10px] font-bold text-slate-300 tracking-tighter">自動處理</span>
                                         </div>
                                         <input
                                             type="text"
@@ -206,12 +227,12 @@
 
                                     <div className="space-y-3">
                                         <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">產品類別</label>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {['BOX', 'TRAY', 'FILM', 'SUSHI', 'OTHER'].map(c => (
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {categories.map(c => (
                                                 <button
                                                     key={c} type="button"
                                                     onClick={() => setFormData({...formData, category: c})}
-                                                    className={`py-3 rounded-2xl text-[11px] font-black border-2 transition-all ${formData.category === c ? 'border-slate-800 bg-slate-800 text-white shadow-md' : 'border-slate-100 text-slate-400'}`}
+                                                    className={`py-3 rounded-2xl text-[10px] font-black border-2 transition-all ${formData.category === c ? 'border-slate-800 bg-slate-800 text-white shadow-md' : 'border-slate-100 text-slate-400'}`}
                                                 >
                                                     {c}
                                                 </button>
